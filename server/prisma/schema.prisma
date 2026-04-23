@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(cuid()) @map("_id")
+  name          String
+  email         String        @unique
+  password      String
+  bio           String        @default("")
+  location      String        @default("")
+  avatar        String        @default("")
+  role          String        @default("user")
+  averageRating Float         @default(0)
+  reviewsCount  Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  skills        Skill[]
+  sentSwaps     SwapRequest[] @relation("SwapSender")
+  receivedSwaps SwapRequest[] @relation("SwapReceiver")
+  sentMessages  Message[]     @relation("MessageSender")
+  recvMessages  Message[]     @relation("MessageReceiver")
+  writtenReview Review[]      @relation("Reviewer")
+  recvReview    Review[]      @relation("Reviewee")
+  progress      Progress[]    @relation("ProgressUpdater")
+}
+
+model Skill {
+  id                String        @id @default(cuid()) @map("_id")
+  userId            String
+  skillName         String
+  category          String
+  description       String        @default("")
+  type              String
+  level             String        @default("beginner")
+  tags              String        @default("[]")
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offeredInSwaps    SwapRequest[] @relation("OfferedSkill")
+  requestedInSwaps  SwapRequest[] @relation("RequestedSkill")
+
+  @@index([userId])
+  @@index([category])
+}
+
+model SwapRequest {
+  id               String     @id @default(cuid()) @map("_id")
+  senderId         String
+  receiverId       String
+  offeredSkillId   String
+  requestedSkillId String
+  message          String     @default("")
+  status           String     @default("pending")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  sender           User       @relation("SwapSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver         User       @relation("SwapReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  offeredSkill     Skill      @relation("OfferedSkill", fields: [offeredSkillId], references: [id], onDelete: Cascade)
+  requestedSkill   Skill      @relation("RequestedSkill", fields: [requestedSkillId], references: [id], onDelete: Cascade)
+  messages         Message[]
+  reviews          Review[]
+  progress         Progress[]
+
+  @@index([senderId, receiverId, status])
+}
+
+model Message {
+  id         String      @id @default(cuid()) @map("_id")
+  swapId     String
+  senderId   String
+  receiverId String
+  content    String
+  isRead     Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  swap       SwapRequest @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  sender     User        @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User        @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([swapId, createdAt])
+}
+
+model Review {
+  id         String      @id @default(cuid()) @map("_id")
+  swapId     String
+  reviewerId String
+  revieweeId String
+  rating     Int
+  comment    String      @default("")
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  swap       SwapRequest @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  reviewer   User        @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee   User        @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+
+  @@index([swapId])
+  @@unique([swapId, reviewerId])
+}
+
+model Progress {
+  id               String      @id @default(cuid()) @map("_id")
+  swapId           String
+  title            String
+  notes            String      @default("")
+  completionStatus String      @default("in_progress")
+  updatedById      String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  swap             SwapRequest @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  updatedBy        User        @relation("ProgressUpdater", fields: [updatedById], references: [id], onDelete: Cascade)
+
+  @@index([swapId, createdAt(sort: Desc)])
+}
